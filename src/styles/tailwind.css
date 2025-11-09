@@ -50,6 +50,9 @@
     --color-error-foreground: #ffffff; /* white */
     --color-destructive: #dc2626; /* red-600 */
     --color-destructive-foreground: #ffffff; /* white */
+    
+    /* Layout Variables - No sidebar compensation needed */
+    --header-height: 4rem; /* 64px for header */
   }
   
   * {
@@ -59,6 +62,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
+    overflow-x: hidden; /* Prevent horizontal body scroll */
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -71,6 +75,138 @@
 }
 
 @layer components {
+  /* Simplified Layout Management - No sidebar compensation */
+  .main-content {
+    padding-top: var(--header-height);
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    /* Establish stacking context for main content */
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Prevent horizontal overflow */
+  .no-horizontal-scroll {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* Enhanced scrollbar styling with no horizontal scroll */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    overflow-x: hidden; /* Force no horizontal scroll */
+  }
+  
+  .scrollbar-thumb-muted {
+    scrollbar-color: hsl(var(--color-muted)) transparent;
+  }
+
+  .scrollbar-track-transparent {
+    scrollbar-color: hsl(var(--color-muted)) transparent;
+  }
+
+  /* Webkit Scrollbar Styling - no horizontal scroll */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 0; /* Remove horizontal scrollbar */
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--color-muted));
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--color-muted-foreground));
+  }
+
+  /* Hide horizontal scrollbar completely */
+  .scrollbar-thin::-webkit-scrollbar-horizontal {
+    display: none;
+  }
+
+  /* CRITICAL: Header and Navigation Z-Index Hierarchy - MAXIMIZED FOR VISIBILITY */
+  
+  /* Header base layer - HIGHEST priority above ALL content */
+  header {
+    position: fixed !important;
+    z-index: 10000 !important;
+    /* Force break out of any parent stacking context */
+    isolation: auto !important;
+  }
+
+  /* Mega Menu Container - establish highest stacking context */
+  .mega-menu-container {
+    position: relative;
+    z-index: 10000;
+  }
+
+  /* ALL dropdown menus - MAXIMUM priority for visibility over any content */
+  .mega-menu-container .absolute,
+  .user-menu-container .absolute,
+  .mobile-menu-container,
+  [class*="z-[10001]"] {
+    z-index: 10001 !important;
+    /* Force new stacking context and break out of containers */
+    position: absolute !important;
+    isolation: auto !important;
+    /* Force GPU acceleration for proper layering */
+    transform: translateZ(0) !important;
+    /* Ensure dropdowns are rendered above everything */
+    will-change: transform !important;
+  }
+
+  /* Specific Select component dropdown override - MAXIMUM visibility */
+  .relative [class*="absolute"][class*="z-[10001]"] {
+    z-index: 10001 !important;
+    /* Ensure Select dropdowns break out of any container */
+    transform: translateZ(0) !important;
+    position: fixed !important;
+    /* Reset position calculation for proper placement */
+    position: absolute !important;
+  }
+
+  /* User menu and mobile menu z-index fixes - MAXIMUM priority */
+  .user-menu-container .absolute {
+    z-index: 10001 !important;
+    transform: translateZ(0) !important;
+  }
+
+  .mobile-menu-container {
+    z-index: 10001 !important;
+    transform: translateZ(0) !important;
+  }
+
+  /* Enhanced Z-index utilities for ultimate dropdown visibility */
+  .z-1000 { z-index: 1000; }
+  .z-1100 { z-index: 1100; }
+  .z-[9998] { z-index: 9998; }
+  .z-[9999] { z-index: 9999; }
+  .z-[10000] { z-index: 10000; }
+  .z-[10001] { z-index: 10001; }
+
+  /* Force all main content below header dropdowns */
+  main {
+    /* Ensure main content stays below header */
+    z-index: 1;
+    /* Prevent creating competing stacking contexts */
+    isolation: auto;
+  }
+
+  /* Line clamping utility for descriptions */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
   /* Animation utilities */
   .animate-shimmer {
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
@@ -108,5 +244,21 @@
   
   .layout-transition {
     transition: all 300ms ease-in-out;
+  }
+}
+
+@layer utilities {
+  /* Responsive layout utilities - No sidebar compensation needed */
+  @media (max-width: 1024px) {
+    .main-content {
+      padding: var(--header-height) 0 0 0;
+    }
+  }
+  
+  /* Mobile mega menu improvements */
+  @media (max-width: 768px) {
+    .mega-menu-container {
+      position: static;
+    }
   }
 }
