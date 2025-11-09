@@ -73,9 +73,7 @@ const CompetitiveIntelligenceDashboard = () => {
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
       {/* Main Content */}
-      <main className={`pt-16 layout-transition ${
-        isSidebarCollapsed ? 'pl-16' : 'pl-64'
-      }`}>
+      <main className="pt-16 w-full">
         <div className="p-6">
           {/* Page Header */}
           <div className="mb-8">

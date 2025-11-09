@@ -210,9 +210,7 @@ const KeywordResearchOptimizationCenter = () => {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
 
-        <main className={`pt-16 transition-all duration-300 ${
-          isSidebarCollapsed ? 'ml-16' : 'ml-64'
-        }`}>
+        <main className="pt-16 w-full">
           <div className="p-6 h-screen">
             {/* Page Header */}
             <div className="flex items-center justify-between mb-6">

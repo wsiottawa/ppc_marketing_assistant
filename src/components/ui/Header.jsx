@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import Icon from '../AppIcon';
 import Button from './Button';
 import Select from './Select';
@@ -11,6 +13,26 @@ const Header = ({ onClientChange, selectedClient, clients = [] }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [openMegaMenu, setOpenMegaMenu] = useState(null);
   const [alertCount, setAlertCount] = useState(3);
+  const [menuPosition, setMenuPosition] = useState(null);
+  const buttonRefs = useRef({});
+
+  const updateMenuPosition = useCallback((categoryId) => {
+    const trigger = buttonRefs.current?.[categoryId];
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const dropdownWidth = 320; // 20rem from w-80
+    const offset = 4; // mt-1 equivalent spacing
+    const viewportWidth = window.innerWidth || dropdownWidth;
+    const maxLeft = viewportWidth - dropdownWidth - 16;
+    const calculatedLeft = Math.max(16, Math.min(rect.left, maxLeft));
+
+    setMenuPosition({
+      categoryId,
+      top: rect.bottom + offset,
+      left: calculatedLeft,
+    });
+  }, []);
 
   // Mock user data
   const currentUser = {
@@ -36,60 +58,7 @@ const Header = ({ onClientChange, selectedClient, clients = [] }) => {
       ]
     },
     {
-      id: 'intelligence',
-      label: 'Intelligence',
-      icon: 'Brain',
-      items: [
-        {
-          label: 'Keywords',
-          path: '/keyword-research-optimization-center',
-          icon: 'Search',
-          description: 'Keyword research and optimization'
-        },
-        {
-          label: 'Competitors',
-          path: '/competitive-intelligence-dashboard',
-          icon: 'TrendingUp',
-          description: 'Competitive intelligence and analysis'
-        }
-      ]
-    },
-    {
-      id: 'analytics',
-      label: 'Analytics',
-      icon: 'BarChart3',
-      items: [
-        {
-          label: 'Performance Hub',
-          path: '/performance-analytics-reporting-hub',
-          icon: 'BarChart3',
-          description: 'Performance analytics and reporting'
-        },
-        {
-          label: 'Google AdWords',
-          path: '/google-adwords-integration',
-          icon: 'ExternalLink',
-          description: 'AdWords integration and insights'
-        }
-      ]
-    },
-    {
-      id: 'operations',
-      label: 'Operations',
-      icon: 'Settings',
-      items: [
-        {
-          label: 'Alerts',
-          path: '/alert-management-notification-center',
-          icon: 'Bell',
-          description: 'Alert management and notifications',
-          badge: alertCount
-        }
-      ]
-    }
-  ];
-
-  // Mock client options
+@@ -93,188 +114,235 @@ const Header = ({ onClientChange, selectedClient, clients = [] }) => {
   const clientOptions = clients?.length > 0 ? clients : [
     { value: 'acme-corp', label: 'Acme Corporation' },
     { value: 'tech-solutions', label: 'Tech Solutions Inc.' },
@@ -116,7 +85,9 @@ const Header = ({ onClientChange, selectedClient, clients = [] }) => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event?.target?.closest('.mega-menu-container')) {
+      if (!event?.target?.closest('.mega-menu-container') && !event?.target?.closest('.mega-menu-dropdown')) {
         setOpenMegaMenu(null);
+        setMenuPosition(null);
       }
       if (!event?.target?.closest('.user-menu-container')) {
         setIsUserMenuOpen(false);
@@ -165,7 +136,28 @@ const Header = ({ onClientChange, selectedClient, clients = [] }) => {
 
   const handleMegaMenuToggle = (categoryId) => {
     setOpenMegaMenu(openMegaMenu === categoryId ? null : categoryId);
+    if (openMegaMenu === categoryId) {
+      setOpenMegaMenu(null);
+      setMenuPosition(null);
+    } else {
+      updateMenuPosition(categoryId);
+      setOpenMegaMenu(categoryId);
+    }
   };
+
+  useEffect(() => {
+    if (!openMegaMenu) return;
+
+    const handleWindowChange = () => updateMenuPosition(openMegaMenu);
+
+    window.addEventListener('resize', handleWindowChange);
+    window.addEventListener('scroll', handleWindowChange, true);
+
+    return () => {
+      window.removeEventListener('resize', handleWindowChange);
+      window.removeEventListener('scroll', handleWindowChange, true);
+    };
+  }, [openMegaMenu, updateMenuPosition]);
 
   const getAllNavigationItems = () => {
     return megaMenuCategories?.flatMap(category => category?.items);
@@ -249,10 +241,102 @@ const Header = ({ onClientChange, selectedClient, clients = [] }) => {
                       ))}
                     </div>
                   </div>
+          {megaMenuCategories?.map((category) => {
+            const isMegaMenuOpen = openMegaMenu === category?.id;
+            const shouldRenderDropdown =
+              isMegaMenuOpen && menuPosition?.categoryId === category?.id && typeof document !== 'undefined';
+
+            return (
+              <React.Fragment key={category?.id}>
+                <div className="relative">
+                  <Button
+                    ref={(el) => {
+                      if (el) {
+                        buttonRefs.current[category?.id] = el;
+                      } else {
+                        delete buttonRefs.current[category?.id];
+                      }
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleMegaMenuToggle(category?.id)}
+                    className={`text-sm font-medium flex items-center space-x-2 nav-transition ${
+                      isMegaMenuOpen
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <Icon name={category?.icon} size={16} />
+                    <span>{category?.label}</span>
+                    <Icon
+                      name="ChevronDown"
+                      size={14}
+                      className={`transition-transform duration-200 ${
+                        isMegaMenuOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </Button>
                 </div>
               )}
             </div>
           ))}
+
+                {shouldRenderDropdown &&
+                  createPortal(
+                    <div
+                      className="mega-menu-dropdown fixed w-80 bg-popover border border-border rounded-md shadow-elevated"
+                      style={{
+                        top: menuPosition?.top ?? 0,
+                        left: menuPosition?.left ?? 0,
+                        zIndex: 2000,
+                      }}
+                    >
+                      <div className="p-4">
+                        <div className="text-sm font-medium text-popover-foreground mb-3 flex items-center space-x-2">
+                          <Icon name={category?.icon} size={16} />
+                          <span>{category?.label}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {category?.items?.map((item) => (
+                            <a
+                              key={item?.path}
+                              href={item?.path}
+                              className={`block px-3 py-3 rounded-md text-sm nav-transition group ${
+                                isActiveRoute(item?.path)
+                                  ? 'bg-accent text-accent-foreground'
+                                  : 'text-popover-foreground hover:bg-muted'
+                              }`}
+                              onClick={() => {
+                                setOpenMegaMenu(null);
+                                setMenuPosition(null);
+                              }}
+                            >
+                              <div className="flex items-start space-x-3">
+                                <div className="relative flex-shrink-0 mt-0.5">
+                                  <Icon name={item?.icon} size={16} />
+                                  {item?.badge && item?.badge > 0 && (
+                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-error text-error-foreground text-xs rounded-full flex items-center justify-center">
+                                      {item?.badge > 9 ? '9+' : item?.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{item?.label}</div>
+                                  <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                    {item?.description}
+                                  </div>
+                                </div>
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    </div>,
+                    document.body
+                  )}
+              </React.Fragment>
+            );
+          })}
         </nav>
 
         {/* Right Section */}
@@ -278,127 +362,3 @@ const Header = ({ onClientChange, selectedClient, clients = [] }) => {
               name={getStatusIcon()} 
               size={16} 
               className={connectionStatus === 'syncing' ? 'animate-spin' : ''}
-            />
-          </div>
-
-          {/* User Profile Menu */}
-          <div className="relative user-menu-container">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className="flex items-center space-x-2 text-muted-foreground hover:text-foreground"
-            >
-              <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-                <Icon name="User" size={16} color="white" />
-              </div>
-              <span className="hidden xl:block text-sm font-medium">{currentUser?.name}</span>
-              <Icon name="ChevronDown" size={14} />
-            </Button>
-
-            {isUserMenuOpen && (
-              <div className="absolute top-full right-0 mt-1 w-64 bg-popover border border-border rounded-md shadow-elevated z-[10001]">
-                <div className="p-4 border-b border-border">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
-                      <Icon name="User" size={20} color="white" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-popover-foreground">{currentUser?.name}</div>
-                      <div className="text-sm text-muted-foreground">{currentUser?.email}</div>
-                      <div className="text-xs text-muted-foreground">{currentUser?.role}</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-2">
-                  <button className="w-full text-left px-3 py-2 text-sm text-popover-foreground hover:bg-muted rounded-md nav-transition flex items-center space-x-2">
-                    <Icon name="Settings" size={16} />
-                    <span>Settings</span>
-                  </button>
-                  <button className="w-full text-left px-3 py-2 text-sm text-popover-foreground hover:bg-muted rounded-md nav-transition flex items-center space-x-2">
-                    <Icon name="HelpCircle" size={16} />
-                    <span>Help & Support</span>
-                  </button>
-                  <hr className="my-2 border-border" />
-                  <button 
-                    onClick={handleLogout}
-                    className="w-full text-left px-3 py-2 text-sm text-error hover:bg-muted rounded-md nav-transition flex items-center space-x-2"
-                  >
-                    <Icon name="LogOut" size={16} />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            iconName="Menu"
-            iconSize={20}
-            className="lg:hidden text-muted-foreground hover:text-foreground mobile-menu-container"
-          />
-        </div>
-      </div>
-      
-      {/* Mobile Navigation */}
-      {isMenuOpen && (
-        <div className="lg:hidden bg-card border-t border-border mobile-menu-container z-[10001]">
-          <div className="p-4 space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
-            {/* Mobile Client Selector */}
-            <div className="mb-4 md:hidden">
-              <Select
-                options={clientOptions}
-                value={selectedClient || clientOptions?.[0]?.value}
-                onChange={handleClientChange}
-                placeholder="Select client"
-                searchable
-                className="text-sm"
-              />
-            </div>
-
-            {/* Mobile Navigation Items - Organized by Category */}
-            {megaMenuCategories?.map((category) => (
-              <div key={category?.id} className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1 flex items-center space-x-2">
-                  <Icon name={category?.icon} size={12} />
-                  <span>{category?.label}</span>
-                </div>
-                {category?.items?.map((item) => (
-                  <a
-                    key={item?.path}
-                    href={item?.path}
-                    className={`block px-4 py-3 rounded-md text-sm font-medium nav-transition flex items-center space-x-3 ${
-                      isActiveRoute(item?.path)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <div className="relative flex-shrink-0">
-                      <Icon name={item?.icon} size={18} />
-                      {item?.badge && item?.badge > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-error text-error-foreground text-xs rounded-full flex items-center justify-center">
-                          {item?.badge > 9 ? '9+' : item?.badge}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate">{item?.label}</div>
-                      <div className="text-xs opacity-75 truncate">{item?.description}</div>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </header>
-  );
-};
-
-export default Header;

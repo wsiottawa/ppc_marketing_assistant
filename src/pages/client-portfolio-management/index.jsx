@@ -179,7 +179,7 @@ const ClientPortfolioManagement = () => {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-      <main className={`pt-16 transition-all duration-300 ${sidebarCollapsed ? 'pl-16' : 'pl-64'}`}>
+      <main className="pt-16 w-full">
         <div className="flex h-[calc(100vh-4rem)]">
           {/* Client List Panel - Left Side */}
           <div className="w-[30%] min-w-[400px] border-r border-border">
